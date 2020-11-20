@@ -1,0 +1,42 @@
+{
+	"easycom": {
+		"^u-(.*)": "uview-ui/components/u-$1/u-$1.vue"
+	},
+	"pages": [{
+		"path": "pages/index/index"
+	}, {
+		"path": "pages/ble/ble",
+		"style": {
+			"navigationBarTitleText": "ble",
+			"enablePullDownRefresh": false
+		}
+	}, {
+		"path": "pages/ble/ble2",
+		"style": {
+			"navigationBarTitleText": "ble2",
+			"enablePullDownRefresh": false
+		}
+	}, {
+		"path": "pages/ble/ble3",
+		"style": {
+			"navigationBarTitleText": "ble3",
+			"enablePullDownRefresh": false
+		}
+	}],
+	"globalStyle": {
+		"navigationBarTextStyle": "white",
+		"navigationBarTitleText": "uniapp-uview-template",
+		"navigationBarBackgroundColor": "#5677FC",
+		"backgroundColor": "#5677FC",
+		"navigationStyle": "default",
+		"app-plus": {
+			"bounce": "none",
+			"softinputNavBar": "none",
+			"animationType": "fade-in",
+			"animationDuration": 300
+		},
+		"mp-alipay": {
+			"titleBarColor": "#FFFFFF"
+		}
+	}
+}
