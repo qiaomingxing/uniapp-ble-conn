@@ -17,6 +17,9 @@
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getRealData')">实时数据</button>
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getDownloadInfo')">历史数据</button>
         </view>
+        <view class="is-flex">
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('download')">下载历史数据</button>
+        </view>
       </view>
     </view>
     <!-- 遮罩 -->
@@ -33,6 +36,16 @@
         </view>
       </scroll-view>
     </view>
+     <scroll-view class="uni-scroll_box" scroll-y @touchmove.stop.prevent="moveHandle" @click.stop="moveHandle">
+       <view class="uni-list-box is-flex">
+         <view class="uni-title is-flex-1">时间</view>
+         <view class="uni-title is-flex-1">温度</view>
+        </view>
+        <view class="uni-list-box is-flex" v-for="(item, index) in 3" :key="index">
+         <view class="uni-title is-flex-1">2020</view>
+         <view class="uni-title is-flex-1">27℃</view>
+        </view>
+      </scroll-view>
   </app-layout>
 </template>
 <script>
@@ -426,6 +439,7 @@ button {
   background: rgba(0, 0, 0, 0.6);
   padding: 0 30rpx;
   box-sizing: border-box;
+  z-index: 99;
 }
 
 .uni-scroll_box {

@@ -10,18 +10,27 @@ export default {
   serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
   characteristicId: '0000FFF2-0000-1000-8000-00805F9B34FB',
   notifyId: '0000FFF1-0000-1000-8000-00805F9B34FB',
+  // 获取实时数据
   getRealData() {
     this.write('GET_REAL_DATA')
   },
+  // 获取单位名称
   getUnitName() {
     this.write('GET_UNIT_NAME')
   },
+  // 获取版本信息
   getVersionInfo() {
     this.write('GET_VERSION_INFO')
   },
+  // 获取历史数据下载信息
   getDownloadInfo() {
     this.write('GET_DOWNLOAD_INFO')
   },
+  // 历史数据下载
+  download() {
+    this.write('DOWNLOAD')
+  },
+  // 写入设备数据
   write(key) {
     this.response = ''
     this.watchType = key
@@ -32,6 +41,9 @@ export default {
     const buffer = new Uint8Array(array).buffer
     bleapi.writeBLECharacteristicValue({ deviceId, serviceId, characteristicId, buffer }).then(res => {})
   },
+  /**
+   * 启用设备特征值notify
+   */
   notify() {
     const deviceId = this.deviceId
     const serviceId = this.serviceId
@@ -49,6 +61,10 @@ export default {
       }
     })
   },
+  /**
+   * 设备特征值监听变化回调
+   * @param {*} callback : 回调方法
+   */
   watch(callback) {
     uni.onBLECharacteristicValueChange(res => {
       console.log('监听蓝牙设备特征值变化', this.watchType, JSON.stringify(res))
@@ -90,6 +106,12 @@ export default {
               callback({ time, temp, shidu })
             })
             break
+            case 'DOWNLOAD':
+              this.response += util.ab2hex(res.value)
+              debounce(() => {
+                console.log(this.response)
+              })
+              break
           default:
             console.log('default case')
         }
@@ -131,7 +153,7 @@ export default {
    * 任意进制转换
    * @param {String|Number} v : 值
    * @param {Number} m : 当前进制
-   * @param {Number} n : 需要转换的禁止
+   * @param {Number} n : 需要转换的进制
    */
   convertSystem(v, m, n) {
     var s = v + ''
