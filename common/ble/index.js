@@ -85,19 +85,22 @@ export default {
             console.log(this.response)
             debounce(() => {
               const isPoweron = this.watchType === 'POWER_ON'
-              callback({ code: 1, data: { power: isPoweron ? 1 : 0 }, msg: isPoweron ? '开机成功' : '关机成功' })
+              callback({ code: 1, data: { power: isPoweron ? 1 : 0 }, msg: 'success' })
             })
             break
           case 'GET_VERSION_INFO':
             this.response += util.ab2hex(res.value)
             debounce(() => {
-              callback(this.getResponse('41434b0118', '0000'))
+              const softwareVersion = this.decodeStr(10, 30)
+              const hardwareVerison = this.decodeStr(30, 50)
+              callback({ code: 1, data: { softwareVersion, hardwareVerison }, msg: 'success' })
             })
             break
           case 'GET_UNIT_NAME':
             this.response += util.ab2hex(res.value)
             debounce(() => {
-              callback(this.getResponse('41434b0250', '0000'))
+              const unitName = this.decodeStr(10, this.response.length - 4)
+              callback({ data: { unitName } })
             })
             break
           case 'GET_REAL_DATA':
@@ -105,12 +108,11 @@ export default {
             debounce(() => {
               console.log(this.response)
               // 解析温度值
-              const temp = this.decodeValue(this.response.substring(this.response.length - 4 - 2 - 4 - 4, this.response.length - 4 - 2 - 4))
+              const temp = this.decodeValue(this.substring(22, 26))
               // 解析湿度值
-              const shidu = this.decodeValue(this.response.substring(this.response.length - 4 - 2 - 4, this.response.length - 4 - 2))
+              const shidu = this.decodeValue(this.substring(26, 30))
               // 解析电量
-              let chargestr = this.response.substring(this.response.length - 4 - 2, this.response.length - 4)
-              const charge = parseInt(chargestr, 16) / 10
+              const charge = this.decodeValue(this.substring(30, 32), false)
               callback({ data: { temp, shidu, charge } })
             })
             break
@@ -121,8 +123,8 @@ export default {
               const time = this.decodeTime(this.response.substring(this.response.length - 16, this.response.length - 12))
               const temp = this.decodeValue(this.response.substring(this.response.length - 12, this.response.length - 8))
               const shidu = this.decodeValue(this.response.substring(this.response.length - 8, this.response.length - 4))
-              const pg = this.decodeValue(this.response.substring(14, 18)) * 10
-              callback({ data: { time, temp, shidu, pg } })
+              const pages = this.decodeValue(this.response.substring(14, 18)) * 10
+              callback({ data: { time, temp, shidu, pages } })
             })
             break
           case 'DOWNLOAD':
@@ -130,7 +132,7 @@ export default {
             debounce(() => {
               console.log(this.response)
               const pageNo = this.decodeValue(this.substring(10, 14)) * 10
-              const pageSize = util.convertSystem(this.substring(14, 16), 16, 10)
+              const pageSize = this.decodeValue(this.substring(14, 16)) * 10
               this.response = this.substring(16, this.response.length - 4)
               const list = []
               for (let i = 0; i < this.response.length; i += 16) {
@@ -149,24 +151,15 @@ export default {
       }
     })
   },
-  getResponse(start, end) {
-    console.log('getResponse：' + this.response)
-    const sub = this.response.substring(this.response.indexOf(start) + start.length, this.response.indexOf(end))
-    return { code: 1, msg: 'success', data: util.hex2str(sub) }
-  },
-  substring(start, end, v = this.response) {
-    return v.substring(start, end)
-  },
-  substr(start, len, v = this.response) {
-    return v.substr(start, len)
+  decodeStr(start, end) {
+    return util.hex2str(this.response.substring(start, end))
   },
   /**
    * 按照协议解析时间
    * 年6bit / 月4bit /日 5bit / 时 5bit / 分6bit  /秒 6bit
    */
   decodeTime(v) {
-    let system2 = '0' + util.convertSystem(v, 16, 2)
-    system2 = system2.padEnd(32, 0)
+    let system2 = ('0' + util.convertSystem(v, 16, 2)).padEnd(32, '0')
     let year = util.convertSystem(system2.substring(0, 6), 2, 10)
     let month = util.convertSystem(system2.substring(6, 10), 2, 10)
     let day = util.convertSystem(system2.substring(10, 15), 2, 10)
@@ -180,10 +173,14 @@ export default {
    * 16进制转换为10进制除以10
    * @param {String} v : 4位，低位在前，高位在后，必须转换
    */
-  decodeValue(v) {
-    let v1 = v.substring(0, 2)
-    let v2 = v.substring(2, 4)
-    v = parseInt(v1, 16) > parseInt(v2, 16) ? v2 + v1 : v
-    return parseInt(v, 16) / 10
+  decodeValue(v, isLowBefore = true) {
+    if (isLowBefore) v = util.reverse(v)
+    return parseInt(util.convertSystem(v, 16, 10)) / 10
+  },
+  substring(start, end, v = this.response) {
+    return v.substring(start, end)
+  },
+  substr(start, len, v = this.response) {
+    return v.substr(start, len)
   }
 }

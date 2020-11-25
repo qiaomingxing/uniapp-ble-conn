@@ -21,7 +21,11 @@
         <view class="is-flex">
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getRealData')">实时数据</button>
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getDownloadInfo')">历史数据</button>
-          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('download', 1)">下载历史数据</button>
+          <button type="primary" :disabled="!watchData.pages" @click="writeBLECharacteristicValue('download', pageNo)">下载历史数据</button>
+        </view>
+        <view class="is-flex has-pd-10">
+          <u-input v-model="pageNo" type="text" :border="true" />
+          <u-button class="has-mgl-20" size="small" type="primary" @click="isPause = !isPause">{{ isPause ? '启动' : '停止' }}</u-button>
         </view>
       </view>
     </view>
@@ -79,7 +83,11 @@ export default {
       valueChangeData: {},
       isStop: true,
       list: [],
-      watchData: {}
+      watchData: {},
+      watchType: '',
+      pageNo: 1,
+      pages: 0,
+      isPause: false
     }
   },
   onLoad() {
@@ -354,7 +362,16 @@ export default {
      * writeCode 写入的控制命令
      */
     writeBLECharacteristicValue(func, param) {
-      ble.watch(res => (this.watchData = res.data))
+      this.watchType = func
+      ble.watch(res => {
+        this.watchData = res.data
+        if (func === 'download' && this.pageNo < this.pages && !this.isPause) {
+          this.pageNo++
+          this.writeBLECharacteristicValue(func, this.pageNo)
+        } else if (func === 'getDownloadInfo') {
+          this.pages = res.data.pages
+        }
+      })
       ble[func](param)
     },
     /**

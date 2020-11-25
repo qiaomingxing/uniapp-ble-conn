@@ -7,13 +7,17 @@ module.exports = {
   GET_DOWNLOAD_INFO: () => [0x53, 0x4e, 0x44, 0x0e, 0x55, 0x33, 0x6e], // 获取下载信息
   DOWNLOAD: (page = 1) => {
     const param = '534e440f55' // 前导+功能码+命令类型
-    const package16 = util.fill0(util.convertSystem(page, 10, 16), 4) // 当前下载包数
+    const package16 = util
+      .convertSystem(page, 10, 16)
+      .padStart(4, 0)
+      .match(/([0-9a-zA-Z]){2}/g)
+      .reverse()
+      .join('') // 当前下载包数，低位在前，高位在后
     const crc16 = util.crc16(util.fillSpace(param + package16)) // 校验码
     return util
       .fillSpace(param + package16 + crc16)
       .split(' ')
       .map(v => '0x' + v)
-    // return [0x53, 0x4e, 0x44, 0x0f, 0x55, 0x00, 0x02, 0x21, 0x15]
   },
   POWER_ON: () => [0x53, 0x4e, 0x44, 0x0d, 0xaa, 0xa0, 0x9f, 0x9d], // 开机
   POWER_OFF: () => [0x53, 0x4e, 0x44, 0x0d, 0xaa, 0x0a, 0x1f, 0xe2] // 关机

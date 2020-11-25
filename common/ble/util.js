@@ -20,6 +20,9 @@ const util = {
   // 16进制转字符串，中文需要gbk解码
   hex2str: function (str, detype = 'gbk') {
     if (str.length % 2 != 0) return
+    if (str.indexOf('0000')) {
+      str = str.substring(0, str.indexOf('0000'))
+    }
     let res = []
     let gbks = []
     for (var i = 0; i < str.length; i = i + 2) {
@@ -62,14 +65,6 @@ const util = {
     return result
   },
   /**
-   * 不足位补0
-   * @param {*} v : 数字
-   * @param {*} n : 位数
-   */
-  fill0(v, n) {
-    return Array(n > v ? n - ('' + v).length + 1 : 0).join(0) + v
-  },
-  /**
    * 每隔n位添加空格
    * @param {*} v
    * @param {*} n
@@ -79,6 +74,13 @@ const util = {
   },
   crc16(v) {
     return crc.crc16(v)
+  },
+  reverse(v) {
+    // return v.match(/((\d)|([a-zA-Z])){2}/g).reverse().join('')
+    return v
+      .match(/([0-9a-zA-Z]){2}/g)
+      .reverse()
+      .join('')
   }
 }
 
