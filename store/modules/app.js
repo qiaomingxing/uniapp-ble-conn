@@ -6,7 +6,7 @@ const state = {
 	loading: {}, // 页面加载
 	isCheckedUpdate: false, // App检测更新标记,false:未检测,true:已检测
 	isForceUpdate: false, // App强制检测更新,false:不强制更新,true:强制更新
-	devMode: { open: true } // 开发模式
+	devMode: { open: false } // 开发模式
 };
 const mutations = {
 	// 语言信息

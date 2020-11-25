@@ -10,15 +10,18 @@
           {{ (connected ? '已连接设备' : '已选择设备') + ' : ' + equipment[0].name + ' (' + equipment[0].deviceId + ')' }}
         </view>
         <button type="primary" :disabled="disabled[9]" @click="closeBLEConnection">断开蓝牙设备</button>
-        <view> 返回数据:{{ watchData }} </view>
+        <button type="primary" :disabled="disabled[10]" @click="closeBluetoothAdapter">关闭蓝牙模块</button>
+        <view v-if="!watchData.list"> 返回数据:{{ JSON.stringify(watchData) }} </view>
         <view class="is-flex">
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('poweron')">开机</button>
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('poweroff')">关机</button>
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getUnitName')">单位名称</button>
           <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getVersionInfo')">版本信息</button>
-          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getRealData')">实时数据</button>
-          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getDownloadInfo')">历史数据</button>
         </view>
         <view class="is-flex">
-          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('download')">下载历史数据</button>
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getRealData')">实时数据</button>
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('getDownloadInfo')">历史数据</button>
+          <button type="primary" :disabled="disabled[8]" @click="writeBLECharacteristicValue('download', 1)">下载历史数据</button>
         </view>
       </view>
     </view>
@@ -36,16 +39,20 @@
         </view>
       </scroll-view>
     </view>
-     <scroll-view class="uni-scroll_box" scroll-y @touchmove.stop.prevent="moveHandle" @click.stop="moveHandle">
-       <view class="uni-list-box is-flex">
-         <view class="uni-title is-flex-1">时间</view>
-         <view class="uni-title is-flex-1">温度</view>
-        </view>
-        <view class="uni-list-box is-flex" v-for="(item, index) in 3" :key="index">
-         <view class="uni-title is-flex-1">2020</view>
-         <view class="uni-title is-flex-1">27℃</view>
-        </view>
-      </scroll-view>
+    <view v-if="watchData.list" class="uni-scroll_box">
+      <view class="uni-list-box is-flex">
+        <view class="uni-title is-flex-1">包号</view>
+        <view class="uni-title is-flex-1">时间</view>
+        <view class="uni-title is-flex-1">温度</view>
+        <view class="uni-title is-flex-1">湿度</view>
+      </view>
+      <view class="uni-list-box is-flex" v-for="(item, index) in watchData.list" :key="index">
+        <view class="uni-title is-flex-1">{{ watchData.pageNo }} </view>
+        <view class="uni-title is-flex-1">{{ item.time }}</view>
+        <view class="uni-title is-flex-1">{{ item.temp }}℃</view>
+        <view class="uni-title is-flex-1">{{ item.shidu }}</view>
+      </view>
+    </view>
   </app-layout>
 </template>
 <script>
@@ -72,12 +79,15 @@ export default {
       valueChangeData: {},
       isStop: true,
       list: [],
-      watchData: ''
+      watchData: {}
     }
   },
   onLoad() {
     this.onBLEConnectionStateChange()
     this.openBluetoothAdapter()
+  },
+  onUnload() {
+    this.closeBluetoothAdapter(true)
   },
   methods: {
     moveHandle() {},
@@ -343,18 +353,37 @@ export default {
      * 写入控制命令
      * writeCode 写入的控制命令
      */
-    writeBLECharacteristicValue(func) {
-      ble.watch(res => (this.watchData = JSON.stringify(res)))
-      ble[func]()
+    writeBLECharacteristicValue(func, param) {
+      ble.watch(res => (this.watchData = res.data))
+      ble[func](param)
     },
     /**
-     * 监听低功耗蓝牙设备的特征值变化事件。
+     * 	断开蓝牙模块
      */
-    onBLECharacteristicValueChange() {
-      uni.onBLECharacteristicValueChange(res => {
-        console.log('监听蓝牙设备特征值变化', JSON.stringify(res))
-        console.log(bleapi.ab2hex(res.value))
-        this.valueChangeData = res
+    closeBluetoothAdapter(isunload = false) {
+      bleapi.closeBluetoothAdapter().then(res => {
+        this.isStop = true
+        this.$set(this.disabled, 0, false)
+        this.$set(this.disabled, 1, true)
+        this.$set(this.disabled, 2, true)
+        this.$set(this.disabled, 3, true)
+        this.$set(this.disabled, 4, true)
+        this.$set(this.disabled, 5, true)
+        this.$set(this.disabled, 6, true)
+        this.$set(this.disabled, 7, true)
+        this.$set(this.disabled, 8, true)
+        this.$set(this.disabled, 9, true)
+        this.$set(this.disabled, 10, true)
+        this.equipment = []
+        this.servicesData = []
+        this.characteristicsData = []
+        this.valueChangeData = {}
+        this.adapterState = []
+        this.searchLoad = false
+        if (isunload) return
+        toast('断开蓝牙模块')
+        this.onBLEConnectionStateChange()
+        this.openBluetoothAdapter()
       })
     }
   }

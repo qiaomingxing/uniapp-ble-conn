@@ -1,7 +1,7 @@
 import commands from '@/common/ble/commands.js'
 import bleapi from '@/common/ble/api.js'
 import debounce from '@/common/debounce/index.js'
-import gbk from '@/common/gbk'
+import util from '@/common/ble/util.js'
 
 export default {
   response: '',
@@ -10,6 +10,14 @@ export default {
   serviceId: '0000FFF0-0000-1000-8000-00805F9B34FB',
   characteristicId: '0000FFF2-0000-1000-8000-00805F9B34FB',
   notifyId: '0000FFF1-0000-1000-8000-00805F9B34FB',
+  // 开机
+  poweron() {
+    this.write('POWER_ON')
+  },
+  // 关机
+  poweroff() {
+    this.write('POWER_OFF')
+  },
   // 获取实时数据
   getRealData() {
     this.write('GET_REAL_DATA')
@@ -27,17 +35,18 @@ export default {
     this.write('GET_DOWNLOAD_INFO')
   },
   // 历史数据下载
-  download() {
-    this.write('DOWNLOAD')
+  download(param) {
+    this.write('DOWNLOAD', param)
   },
   // 写入设备数据
-  write(key) {
+  write(key, param) {
+    console.log('写入命令：', commands[key](param))
     this.response = ''
     this.watchType = key
     const deviceId = this.deviceId
     const serviceId = this.serviceId
     const characteristicId = this.characteristicId
-    const array = Array.from(commands[key])
+    const array = Array.from(commands[key](param))
     const buffer = new Uint8Array(array).buffer
     bleapi.writeBLECharacteristicValue({ deviceId, serviceId, characteristicId, buffer }).then(res => {})
   },
@@ -70,6 +79,15 @@ export default {
       console.log('监听蓝牙设备特征值变化', this.watchType, JSON.stringify(res))
       if (res.characteristicId === this.notifyId) {
         switch (this.watchType) {
+          case 'POWER_ON':
+          case 'POWER_OFF':
+            this.response += util.ab2hex(res.value) // 41434b0d01990d18
+            console.log(this.response)
+            debounce(() => {
+              const isPoweron = this.watchType === 'POWER_ON'
+              callback({ code: 1, data: { power: isPoweron ? 1 : 0 }, msg: isPoweron ? '开机成功' : '关机成功' })
+            })
+            break
           case 'GET_VERSION_INFO':
             this.response += util.ab2hex(res.value)
             debounce(() => {
@@ -93,25 +111,38 @@ export default {
               // 解析电量
               let chargestr = this.response.substring(this.response.length - 4 - 2, this.response.length - 4)
               const charge = parseInt(chargestr, 16) / 10
-              callback({ temp, shidu, charge })
+              callback({ data: { temp, shidu, charge } })
             })
             break
           case 'GET_DOWNLOAD_INFO':
             this.response += util.ab2hex(res.value)
             debounce(() => {
               console.log(this.response)
-              const time = this.decodeTime()
+              const time = this.decodeTime(this.response.substring(this.response.length - 16, this.response.length - 12))
               const temp = this.decodeValue(this.response.substring(this.response.length - 12, this.response.length - 8))
               const shidu = this.decodeValue(this.response.substring(this.response.length - 8, this.response.length - 4))
-              callback({ time, temp, shidu })
+              const pg = this.decodeValue(this.response.substring(14, 18)) * 10
+              callback({ data: { time, temp, shidu, pg } })
             })
             break
-            case 'DOWNLOAD':
-              this.response += util.ab2hex(res.value)
-              debounce(() => {
-                console.log(this.response)
-              })
-              break
+          case 'DOWNLOAD':
+            this.response += util.ab2hex(res.value)
+            debounce(() => {
+              console.log(this.response)
+              const pageNo = this.decodeValue(this.substring(10, 14)) * 10
+              const pageSize = util.convertSystem(this.substring(14, 16), 16, 10)
+              this.response = this.substring(16, this.response.length - 4)
+              const list = []
+              for (let i = 0; i < this.response.length; i += 16) {
+                const item = this.substring(i, i + 16)
+                const time = this.decodeTime(this.substring(0, 8, item))
+                const temp = this.decodeValue(this.substring(8, 12, item))
+                const shidu = this.decodeValue(this.substring(12, 16, item))
+                list.push({ time, temp, shidu })
+              }
+              callback({ code: 1, msg: 'success', data: { pageNo, pageSize, list } })
+            }, 1000)
+            break
           default:
             console.log('default case')
         }
@@ -121,21 +152,27 @@ export default {
   getResponse(start, end) {
     console.log('getResponse：' + this.response)
     const sub = this.response.substring(this.response.indexOf(start) + start.length, this.response.indexOf(end))
-    return { value: util.hex2str(sub) }
+    return { code: 1, msg: 'success', data: util.hex2str(sub) }
+  },
+  substring(start, end, v = this.response) {
+    return v.substring(start, end)
+  },
+  substr(start, len, v = this.response) {
+    return v.substr(start, len)
   },
   /**
    * 按照协议解析时间
    * 年6bit / 月4bit /日 5bit / 时 5bit / 分6bit  /秒 6bit
    */
-  decodeTime() {
-    let timestr = this.response.substring(this.response.length - 4 - 4 - 4 - 8, this.response.length - 4 - 4 - 4)
-    let system2 = '0' + this.convertSystem(timestr, 16, 2)
-    let year = this.convertSystem(system2.substring(0, 6), 2, 10)
-    let month = this.convertSystem(system2.substring(6, 10), 2, 10)
-    let day = this.convertSystem(system2.substring(10, 15), 2, 10)
-    let hour = this.convertSystem(system2.substring(15, 20), 2, 10)
-    let minute = this.convertSystem(system2.substring(20, 26), 2, 10)
-    let second = this.convertSystem(system2.substring(26, 32), 2, 10)
+  decodeTime(v) {
+    let system2 = '0' + util.convertSystem(v, 16, 2)
+    system2 = system2.padEnd(32, 0)
+    let year = util.convertSystem(system2.substring(0, 6), 2, 10)
+    let month = util.convertSystem(system2.substring(6, 10), 2, 10)
+    let day = util.convertSystem(system2.substring(10, 15), 2, 10)
+    let hour = util.convertSystem(system2.substring(15, 20), 2, 10).padStart(2, '0')
+    let minute = util.convertSystem(system2.substring(20, 26), 2, 10).padStart(2, '0')
+    let second = util.convertSystem(system2.substring(26, 32), 2, 10).padStart(2, '0')
     return `20${year}-${month}-${day} ${hour}:${minute}:${second}`
   },
   /**
@@ -148,67 +185,5 @@ export default {
     let v2 = v.substring(2, 4)
     v = parseInt(v1, 16) > parseInt(v2, 16) ? v2 + v1 : v
     return parseInt(v, 16) / 10
-  },
-  /**
-   * 任意进制转换
-   * @param {String|Number} v : 值
-   * @param {Number} m : 当前进制
-   * @param {Number} n : 需要转换的进制
-   */
-  convertSystem(v, m, n) {
-    var s = v + ''
-    var result = parseInt(s, m).toString(n)
-    return result
-  }
-}
-
-const util = {
-  // jbk解码
-  decode: function (str) {
-    return gbk.decode(str)
-  },
-  // jbk编码
-  encode: function (str) {
-    return gbk.encode(str)
-  },
-  // arraybuffer转16进制
-  ab2hex: function (buffer) {
-    let hexArr = Array.prototype.map.call(new Uint8Array(buffer), function (bit) {
-      return ('00' + bit.toString(16)).slice(-2)
-    })
-    return hexArr.join('')
-  },
-  // 16进制转字符串，中文需要gbk解码
-  hex2str: function (str, detype = 'gbk') {
-    if (str.length % 2 != 0) return
-    let res = []
-    let gbks = []
-    for (var i = 0; i < str.length; i = i + 2) {
-      gbks.push(parseInt(str.substr(i, 2), 16))
-      res.push(String.fromCharCode(parseInt(str.substr(i, 2), 16)))
-    }
-    return detype === 'gbk' ? util.decode(gbks) : res.join('')
-  },
-  /**
-   * 将字符串转换成ArrayBufer
-   */
-  string2buffer: function (str) {
-    let val = ''
-    if (!str) return
-    let length = str.length
-    let index = 0
-    let array = []
-    while (index < length) {
-      array.push(str.substring(index, index + 2))
-      index = index + 2
-    }
-    val = array.join(',')
-
-    // 将16进制转化为ArrayBuffer
-    return new Uint8Array(
-      val.match(/[\da-f]{2}/gi).map(function (h) {
-        return parseInt(h, 16)
-      })
-    ).buffer
   }
 }
