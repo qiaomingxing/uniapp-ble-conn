@@ -1,7 +1,7 @@
 <template>
   <app-layout>
     <view class="uni-padding-wrap uni-common-mt">
-      <view> 本蓝牙协议只支持低功耗蓝牙协议ble。如果想连接非ble蓝牙设备，请在社区搜索 Native.js 蓝牙。 </view>
+      <view> 本蓝牙协议只支持低功耗蓝牙协议ble </view>
       <view class="uni-btn-v">
         <button type="primary" :loading="searchLoad" :disabled="disabled[1]" @click="startBluetoothDevicesDiscovery">开始搜索蓝牙设备</button>
         <button type="primary" :disabled="disabled[2]" @click="stopBluetoothDevicesDiscovery(false)">停止搜索蓝牙设备</button>
@@ -91,14 +91,17 @@ export default {
     }
   },
   onLoad() {
-    this.onBLEConnectionStateChange()
-    this.openBluetoothAdapter()
+    this.init()
   },
   onUnload() {
     this.closeBluetoothAdapter(true)
   },
   methods: {
     moveHandle() {},
+    init() {
+      this.onBLEConnectionStateChange()
+      this.openBluetoothAdapter()
+    },
     /**
      * 关闭遮罩
      */
@@ -354,6 +357,7 @@ export default {
           this.characteristicsData = []
           this.valueChangeData = {}
           toast('已经断开当前蓝牙连接')
+          this.init()
         }
       })
     },
